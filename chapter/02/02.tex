@@ -1,75 +1,238 @@
-% set graphics path for each chapter with figures if organizing figures per chapter
-\graphicspath{ {./chapter/02} }
-\chapter{Coffee Berries}
+\chapter{Literature Review}
+\label{ch:literature-review}
 
-A coffee bean is a seed from the Coffea plant and the source for coffee (Figure \ref{ch2:fig:coffee_berries}). This
-fruit is often referred to as a coffee cherry, but unlike the cherry, which
-usually contains a single pit, it is a berry most commonly found having two
-seeds with their flat sides together.
+The identification of a flying object from a measured trajectory is an inverse
+problem: position and motion are observed, whereas target class and underlying
+dynamics must be inferred. Traditional kinematic approaches use position,
+velocity, acceleration, maneuvering behavior, or summary quantities extracted
+from an estimated track. This thesis considers a complementary representation:
+the time history of specific mechanical energy. The following review examines
+the research underlying trajectory-based identification, physical energy
+representations, reconstruction of degraded measurements, and machine-learning
+classification. Its purpose is to motivate a testable research question rather
+than assume that an energy representation is superior.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.6\textwidth,alt={Multiple red and green coffee
-    berries clustered together on coffee tree branches}]{
-        Clumps_of_coffee_berries_growing_on_a_tree_by_Brian_Smith.jpg
-    }
-    \caption{Clumps of coffee berries growing on a tree (Photo by Brian Smith)}
-    \label{ch2:fig:coffee_berries}
-\end{figure}
+\section{Classification from Kinematic Observations}
+\label{sec:lit-kinematic}
 
-\section{Characteristics of Coffee Berries}
+Motion-based target classification is closely connected to target tracking,
+but the objectives are distinct. Tracking estimates a time-dependent state;
+classification assigns a comparatively persistent identity or category.
+Ristic, Gordon, and Bessell \cite{ristic2004kinematic} developed a framework
+for classification using kinematic information, illustrating how
+class-dependent motion characteristics can inform inference even without
+a distinctive target signature. Angelova and Mihaylova
+\cite{angelova2006joint} considered joint target tracking and classification
+using kinematic radar measurements and probabilistic filtering. This line
+of work makes measurement uncertainty and uncertainty about the dynamic
+model central to the classification problem.
 
-The two most economically important varieties of coffee plants are the arabica
-and the robusta; approximately 60\% of the coffee produced worldwide is arabica
-and some 40\% is robusta (Table \ref{ch2:tab:coffee_species}).
+A directly relevant study is the dynamic classification of ballistic
+missiles by Singh, Padmanabhan, and Agarwal \cite{singh2014dynamic}.
+Their use of neural networks and hidden Markov models demonstrates that
+temporal patterns in observed motion can be used to distinguish missile
+classes. However, it does not establish that a mechanical-energy history
+is the best possible input representation. Jochumsen and colleagues
+\cite{jochumsen2016recursive} also investigated recursive
+random-forest classification from two-dimensional radar tracks,
+illustrating an alternative connection between state estimation
+and learning from kinematic observations.
 
-\begin{table}
-    \centering
-    \caption{Common Coffee Species Comparison}
-    \medskip
-    \label{ch2:tab:coffee_species}
-    \renewcommand{\arraystretch}{1.5}
-    \tagpdfsetup{table/header-columns={1},table/header-rows={1}}
-    \begin{tabular}{|>{\bfseries}l|l|l|}
-        \hline
-        Species & \textbf{Flavor Profile} & \textbf{Global Production} \\
-        \hline
-        Arabica & Smooth, complex, with fruit notes & 60\% \\
-        \hline
-        Robusta & Strong, bitter, earthy & 40\% \\
-        \hline
-    \end{tabular}
-\end{table}
-\pagebreak
+These studies motivate examining whether a physically constructed
+trajectory representation can make class-specific characteristics
+more apparent to a classifier. They also caution against equating
+good tracking accuracy with good class discrimination: the two tasks
+must be evaluated separately.
 
-\subsection{Key information}
+\section{Mechanical Energy and Flight Dynamics}
+\label{sec:lit-energy}
 
-Table \ref{ch2:tab:coffee_characteristics} summarizes key information about coffee berries:
+Classical orbital mechanics expresses the specific mechanical energy
+of an object as the sum of kinetic and gravitational potential energy
+per unit mass \cite{curtis2021orbital}. With gravitational potential
+referenced to the Earth's surface, a convenient energy history is
+\begin{equation}
+    \mathcal{E}(t)
+    = \frac{1}{2}v(t)^2
+    + \mu\left(
+        \frac{1}{R_E} - \frac{1}{R_E+h(t)}
+      \right),
+    \label{eq:lit-specific-energy}
+\end{equation}
+where $v$ is speed in the selected reference frame, $h$ is altitude,
+$R_E$ is the reference Earth radius, and $\mu$ is the gravitational
+parameter of Earth. The reference offset in potential energy does
+not change energy differences.
 
-\begin{table}
-    \centering
-    \caption{Key Characteristics of Coffee Berries}
-    \medskip
-    \label{ch2:tab:coffee_characteristics}
-    \renewcommand{\arraystretch}{1.5}
-    \tagpdfsetup{table/header-columns={1}}
-    \begin{tabular}{|>{\bfseries}p{2in}|p{4in}|}
-        \hline
-        Color at Ripeness & Bright red, yellow or pink depending on variety \\
-        \hline
-        Size & Approximately 15 mm in diameter \\
-        \hline
-        Weight & 300--330 mg dry \\
-        \hline
-        Seeds per Berry & Typically 2 seeds; 10--15\% are peaberries (single seed) \\
-        \hline
-        Time to Maturity & 6--11 months depending on variety and growing conditions \\
-        \hline
-        Caffeine Content & 1.0--2.5\% by dry weight \\
-        \hline
-        Growing Conditions & Altitudes of 600--2,200 meters; temperatures of 15--24°C \\
-        \hline
-        Shelf Life (Fruit) & 2--3 weeks if left on tree after ripening \\
-        \hline
-    \end{tabular}
-\end{table}
+In the ideal unpowered two-body problem, specific mechanical energy
+computed using \emph{inertial} speed is constant. During atmospheric
+flight, aerodynamic work reduces mechanical energy. Similarly, if
+the speed is ground-relative rather than inertial, Earth's rotation
+affects interpretation of changes in the calculated quantity.
+A ground-relative energy history is therefore a physically motivated
+\emph{feature}, not automatically a conserved invariant. This distinction
+is particularly important when examining post-burnout behavior.
+
+Powered flight can produce a characteristic increase in mechanical
+energy, while the subsequent flight history may reflect both
+nonconservative losses and the chosen reference frame. The evolution
+of $\mathcal{E}(t)$ therefore offers a possible means of summarizing
+changes in altitude and speed on a single physical scale. It may also
+preserve information that an isolated apogee, maximum velocity,
+or flight duration omits. Conversely, different three-dimensional
+trajectories can have similar scalar energy histories; energy is not
+a lossless replacement for the original trajectory. Its value as a
+classification input must be determined experimentally.
+
+\section{Radar Measurements, Noise, and Incomplete Trajectories}
+\label{sec:lit-noise}
+
+A classifier operates on imperfect observations rather than exact
+dynamics. Bar-Shalom, Li, and Kirubarajan
+\cite{barshalom2001estimation} describe the estimation of dynamic
+states from noisy observations, building on the state-space
+filtering framework associated with Kalman \cite{kalman1960filtering}.
+These methods clarify that uncertainty in position estimates
+propagates into velocity and other derived quantities.
+
+Three forms of degradation should be distinguished: measurement
+perturbations, missing observations, and isolated gross errors.
+Additive noise changes recorded values; sparse or intermittent
+sampling removes segments of a trajectory; and outliers can
+dominate an otherwise suitable regression model. These
+degradations have different implications for reconstruction
+and classification. In particular, numerical differentiation
+can amplify high-frequency position error, and the kinetic
+term in Eq.~\eqref{eq:lit-specific-energy} depends quadratically
+on estimated speed.
+
+The present study employs repeatable synthetic degradation
+experiments to investigate sensitivity to these effects.
+Their purpose is a controlled robustness comparison. Such
+experiments are not, without independent sensor validation,
+proof that any selected synthetic error distribution describes
+all operational radar systems.
+
+\section{Trajectory Reconstruction and Robust Differentiation}
+\label{sec:lit-reconstruction}
+
+A continuous energy history generally requires a reconstructed
+position and velocity history. State estimation offers one
+approach \cite{kalman1960filtering,barshalom2001estimation};
+smooth-function fitting offers another. Wahba
+\cite{wahba1978smoothing} addressed spline smoothing
+and the tradeoff between agreement with observations and
+protection against model error. This motivates the use of
+smooth representations when observations are irregular or sparse.
+
+Ordinary least squares can be adversely influenced by a small
+number of grossly erroneous samples. Rousseeuw and Leroy
+\cite{rousseeuw1987robust} provide a foundation for robust
+regression and outlier diagnosis. A physically constrained,
+robust trajectory fit is consequently a plausible option
+when measured tracks contain missing samples and isolated
+large errors.
+
+Derivatives require additional attention. Savitzky and Golay
+\cite{savitzky1964smoothing} introduced local polynomial
+smoothing and differentiation procedures. Their method
+illustrates how derivatives can be estimated without relying
+entirely on differences between adjacent noisy samples,
+although the smoothing window may also suppress genuine
+short-duration changes.
+
+For this thesis, reconstruction quality should not be assessed
+solely through agreement in altitude or position. Velocity
+error enters specific energy quadratically. It is therefore
+important to assess the fidelity of derived energy profiles,
+event timing, and classification performance, including
+cases in which reconstruction fails.
+
+\section{Supervised Classification Models}
+\label{sec:lit-classification}
+
+Support-vector machines (SVMs) are a natural baseline for
+fixed-length energy-profile vectors. Cortes and Vapnik
+\cite{cortes1995svm} developed the margin-based formulation
+and its extension to nonlinear discrimination through
+kernel functions. In a trajectory study, both feature scaling
+and kernel hyperparameter tuning affect the resulting
+decision boundary. Comparisons are meaningful only when
+such decisions are made using training data rather than
+the held-out evaluation set.
+
+Breiman's random forests \cite{breiman2001forests} provide
+an alternative using ensembles of randomized trees.
+They are useful for evaluating compact sets of physically
+motivated features, including event times and energy
+statistics, and have also been explored for radar-track
+classification \cite{jochumsen2016recursive}. They
+do not establish that an apparently predictive feature
+represents a causal physical distinction.
+
+Neural networks can instead learn nonlinear combinations
+of profile samples. LeCun, Bengio, and Hinton
+\cite{lecun2015deep} describe the broader approach of
+representation learning. A multilayer perceptron can
+ingest a resampled energy vector directly, whereas a
+convolutional or recurrent architecture can exploit
+temporal structure. Long short-term memory networks
+\cite{hochreiter1997lstm} are one example of a model
+designed to capture dependencies across sequential data.
+These are possible comparisons, not an a priori
+argument that deeper models must perform better.
+
+\section{Time-Series Representation and Evaluation}
+\label{sec:lit-timeseries}
+
+Energy histories are time series, and their encoding changes
+the question a classifier is asked to solve. Bagnall and
+colleagues \cite{bagnall2017bakeoff} emphasize consistent
+experimental comparison of time-series methods, while
+Ismail Fawaz and colleagues \cite{fawaz2019review}
+review deep-learning models for time-series classification.
+
+Sampling profiles on a common absolute-time grid retains
+information about when events occur, but requires an explicit
+policy for unequal trajectory lengths. Normalizing each
+profile to a common duration allows shape-based comparison
+but can remove differences in event timing or total flight
+duration. Restricting observations to powered flight or
+apogee changes the available evidence and may make
+early-stage classification possible, at the cost of
+excluding later behavior.
+
+A central experimental safeguard is to separate
+\emph{underlying trajectories}, not merely their noisy
+realizations. Multiple degraded versions of one simulation
+should not appear on both sides of a training/test split,
+because doing so can exaggerate generalization to new
+trajectories. Robustness comparisons should report
+classification metrics, per-class behavior, and the rate
+of unsuccessful reconstructions rather than scoring
+successful cases alone.
+
+\section{Research Gap and Thesis Direction}
+\label{sec:lit-gap}
+
+Prior work establishes that kinematic motion histories can
+be used for classification \cite{ristic2004kinematic,
+singh2014dynamic,jochumsen2016recursive}, that
+uncertain tracks require appropriate reconstruction
+\cite{barshalom2001estimation,rousseeuw1987robust},
+and that temporal representations can be learned or
+classified using multiple model families
+\cite{bagnall2017bakeoff,fawaz2019review}.
+These findings motivate, but do not independently validate,
+the energy-based formulation proposed in this thesis.
+
+The research question is whether a specific-mechanical-energy
+representation offers a favorable balance of class
+discrimination, resistance to measurement degradation,
+data requirements, and computational cost relative
+to direct kinematic inputs. The subsequent methodology
+will compare reference and reconstructed histories,
+standalone profiles and hybrid descriptors, and
+classical classifiers and neural networks. Those
+comparisons will determine the merits and limits
+of the representation for the available datasets.
