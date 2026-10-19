@@ -27,8 +27,21 @@ using kinematic radar measurements and probabilistic filtering. This line
 of work makes measurement uncertainty and uncertainty about the dynamic
 model central to the classification problem.
 
-A directly relevant study is the dynamic classification of ballistic
-missiles by Singh, Padmanabhan, and Agarwal \cite{singh2014dynamic}.
+Auburn research provides a particularly relevant line of work on
+classification from simulated projectile and missile trajectories.
+Carpenter, Speakman, and Hartfield \cite{carpenter2016rapid}
+studied rapid characterization of munitions using neural networks.
+Zhou \cite{zhou2018deep} subsequently investigated deep learning
+on simulated six-degree-of-freedom projectile histories, reporting
+successful classification of three related short-range rocket classes
+from early observations. Carpenter and colleagues
+\cite{carpenter2019statistical} also examined statistical learning
+for munition trajectory prediction, linking classification research
+to the broader problem of extracting useful information from tracks.
+
+A directly relevant study outside this research group is the dynamic
+classification of ballistic missiles by Singh, Padmanabhan, and
+Agarwal \cite{singh2014dynamic}.
 Their use of neural networks and hidden Markov models demonstrates that
 temporal patterns in observed motion can be used to distinguish missile
 classes. However, it does not establish that a mechanical-energy history
@@ -37,6 +50,18 @@ is the best possible input representation. Jochumsen and colleagues
 random-forest classification from two-dimensional radar tracks,
 illustrating an alternative connection between state estimation
 and learning from kinematic observations.
+
+Eckert, Carpenter, Hartfield, and Cervantes
+\cite{eckert2020classification} extended early-flight classification
+to simulated intermediate-range missile classes. Cervantes,
+Moore, Carpenter, and Hartfield \cite{cervantes2024telemetry}
+later compared classification from the first 10, 20, or 30 seconds
+of telemetry against classification using summary quantities
+such as trajectory maxima. Their analysis also considered feature
+importance and missing data. This is a close methodological
+precedent for comparing a compact physical representation
+with direct time-history inputs, although their study did not
+evaluate the specific energy history considered here.
 
 These studies motivate examining whether a physically constructed
 trajectory representation can make class-specific characteristics
@@ -84,6 +109,16 @@ trajectories can have similar scalar energy histories; energy is not
 a lossless replacement for the original trajectory. Its value as a
 classification input must be determined experimentally.
 
+An adjacent study by Evans, Carpenter, and Hartfield
+\cite{evans2026clustering} explored unsupervised grouping of
+solid-propellant missile designs using performance parameters
+and maximum trajectory quantities. That study supports considering
+derived physical summaries as representations of simulation output,
+but its unsupervised objective and scalar inputs differ from
+classification using an ordered energy history. It therefore
+provides a relevant point of comparison rather than evidence
+that energy profiles already improve supervised classification.
+
 \section{Radar Measurements, Noise, and Incomplete Trajectories}
 \label{sec:lit-noise}
 
@@ -105,6 +140,20 @@ and classification. In particular, numerical differentiation
 can amplify high-frequency position error, and the kinetic
 term in Eq.~\eqref{eq:lit-specific-energy} depends quadratically
 on estimated speed.
+
+Measurement degradation has also been addressed directly in
+related missile-classification work. Eckert's subsequent thesis
+\cite{eckert2020thesis} incorporated radar-equation-based
+simulated measurement noise, an $\alpha$--$\beta$ filter,
+and a comparison of neural networks with SVMs.
+Cervantes and colleagues \cite{cervantes2024telemetry}
+evaluated classification when telemetry values were removed
+and imputed. Dove, Hartfield, and Carpenter
+\cite{dove2025novelty} examined reduced observation windows
+and missing data while distinguishing known missile classes
+from previously unseen examples. These results demonstrate
+the importance of testing missing-data sensitivity rather than
+relying exclusively on intact simulation histories.
 
 The present study employs repeatable synthetic degradation
 experiments to investigate sensitivity to these effects.
@@ -141,6 +190,20 @@ entirely on differences between adjacent noisy samples,
 although the smoothing window may also suppress genuine
 short-duration changes.
 
+Gaubatz, Carpenter, and Hartfield
+\cite{gaubatz2025fda} also considered functional-data-analysis
+preprocessing for neural-network missile classification and
+waypoint prediction. Treating sampled trajectories as
+functions offers an alternative to feeding unprocessed
+coordinate vectors directly into a classifier. Collins,
+Carpenter, and Hartfield \cite{collins2025crud}
+investigated coordinate-driven, robust, and uncertainty-aware
+dynamic missile classification. These contributions
+motivate comparisons among direct coordinates,
+smoothed functional representations, and derived
+physics-based quantities without treating preprocessing
+as independent of the eventual classification objective.
+
 For this thesis, reconstruction quality should not be assessed
 solely through agreement in altitude or position. Velocity
 error enters specific energy quadratically. It is therefore
@@ -159,7 +222,17 @@ kernel functions. In a trajectory study, both feature scaling
 and kernel hyperparameter tuning affect the resulting
 decision boundary. Comparisons are meaningful only when
 such decisions are made using training data rather than
-the held-out evaluation set.
+the held-out evaluation set. In missile-specific work,
+Eckert \cite{eckert2020thesis} compared SVMs and
+neural networks using degraded simulated flight histories,
+finding that a radial-kernel SVM performed particularly
+well on the investigated dataset. Dove, Hartfield,
+and Carpenter \cite{dove2025novelty} combined
+one-class SVMs with linear discriminant analysis to
+address the different challenge of identifying both
+known classes and unfamiliar trajectories. Neither
+result alone establishes the best classifier for an
+energy-based representation.
 
 Breiman's random forests \cite{breiman2001forests} provide
 an alternative using ensembles of randomized trees.
@@ -168,7 +241,14 @@ motivated features, including event times and energy
 statistics, and have also been explored for radar-track
 classification \cite{jochumsen2016recursive}. They
 do not establish that an apparently predictive feature
-represents a causal physical distinction.
+represents a causal physical distinction. In related
+solid-rocket-motor modeling, Sheils and colleagues
+\cite{sheils2025explainability} used SHAP analyses to
+interpret the influence of model inputs on predicted
+motor performance. Their work motivates examining
+which energy-profile regions or derived descriptors
+drive classification decisions, rather than reporting
+accuracy alone.
 
 Neural networks can instead learn nonlinear combinations
 of profile samples. LeCun, Bengio, and Hinton
@@ -179,6 +259,16 @@ convolutional or recurrent architecture can exploit
 temporal structure. Long short-term memory networks
 \cite{hochreiter1997lstm} are one example of a model
 designed to capture dependencies across sequential data.
+The distinction between architecture and input
+representation is particularly important in light of
+DiMaggio, Hartfield, and Carpenter's
+\cite{dimaggio2026ensemble} study of genetically
+optimized neural-network ensembles for classifying
+similar solid rocket motor variants from early
+flight histories. Their results show that
+network architecture and aggregation can affect
+classification performance when classes are similar;
+they do not isolate the effect of an energy representation.
 These are possible comparisons, not an a priori
 argument that deeper models must perform better.
 
@@ -186,7 +276,15 @@ argument that deeper models must perform better.
 \label{sec:lit-timeseries}
 
 Energy histories are time series, and their encoding changes
-the question a classifier is asked to solve. Bagnall and
+the question a classifier is asked to solve. The early-flight
+windows examined by Cervantes and colleagues
+\cite{cervantes2024telemetry}, the functional
+preprocessing considered by Gaubatz and colleagues
+\cite{gaubatz2025fda}, and the early-flight
+ensembles of DiMaggio and colleagues
+\cite{dimaggio2026ensemble} provide
+particularly relevant precedents for comparing
+time-history encodings on common observation windows. Bagnall and
 colleagues \cite{bagnall2017bakeoff} emphasize consistent
 experimental comparison of time-series methods, while
 Ismail Fawaz and colleagues \cite{fawaz2019review}
@@ -217,12 +315,20 @@ successful cases alone.
 
 Prior work establishes that kinematic motion histories can
 be used for classification \cite{ristic2004kinematic,
-singh2014dynamic,jochumsen2016recursive}, that
-uncertain tracks require appropriate reconstruction
-\cite{barshalom2001estimation,rousseeuw1987robust},
+singh2014dynamic,jochumsen2016recursive,
+eckert2020classification,cervantes2024telemetry},
+that uncertain tracks require appropriate reconstruction
+\cite{barshalom2001estimation,rousseeuw1987robust,
+eckert2020thesis,collins2025crud},
 and that temporal representations can be learned or
 classified using multiple model families
-\cite{bagnall2017bakeoff,fawaz2019review}.
+\cite{bagnall2017bakeoff,fawaz2019review,
+gaubatz2025fda,dimaggio2026ensemble}.
+Earlier work with physical performance summaries and
+unsupervised grouping \cite{evans2026clustering},
+as well as methods for detecting classes absent from
+training \cite{dove2025novelty}, provides further
+context for defining the scope of the present study.
 These findings motivate, but do not independently validate,
 the energy-based formulation proposed in this thesis.
 
