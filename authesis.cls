@@ -3,7 +3,7 @@
 %
 % MIT License
 %
-% Copyright (c) 2026 Graduate College
+% Copyright (c) 2027 Graduate College
 %
 % Permission is hereby granted, free of charge, to any person obtaining a copy
 % of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,7 @@
 % SOFTWARE. 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \NeedsTeXFormat{LaTeX2e}[2025/11/01]
-\ProvidesClass{authesis}[2026/06/03 v1.0.0 Auburn University Graduate School Dissertation/Thesis]
+\ProvidesClass{authesis}[2027/06/03 v1.0.0 Auburn University Graduate School Dissertation/Thesis]
 
 \LoadClass[letterpaper,12pt,oneside]{report}
 
