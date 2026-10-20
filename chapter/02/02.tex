@@ -1,1 +1,463 @@
 \chapter{Synthetic Noise Generation}
+\label{ch:synthetic-noise}
+
+\section{Purpose and Scope}
+\label{sec:noise-purpose}
+
+Trajectory simulations provide continuous, internally consistent descriptions of
+flight, whereas a measurement system provides an incomplete and uncertain
+record of that motion. Radar observations are affected by finite measurement
+precision and by the availability and association of detections. A target may be
+observed intermittently, and an accepted position measurement may differ from
+the underlying position because of sensor and processing errors
+\cite{barshalom1975clutter,barshalom2001estimation}. Additional errors can be
+introduced as measurements are transmitted, stored, or processed. These
+distinctions matter because missing measurements, ordinary measurement
+uncertainty, and isolated data corruption do not affect a reconstructed
+trajectory in the same way.
+
+Previous classification research at Auburn University has examined the effect
+of simulated radar measurement noise and filtering
+\cite{eckert2020thesis}, as well as the sensitivity of classifications to
+missing telemetry \cite{cervantes2024telemetry}. The present study adopts a
+controlled \emph{synthetic degradation} approach. Clean numerical flight
+histories are treated as reference trajectories, and selected portions of
+their altitude histories are withheld or altered to produce the observations
+available to subsequent analysis. The resulting measurement sets support
+repeatable comparisons across degradation types and severity levels.
+
+The objective is not to reproduce a specific radar installation in full.
+Instead, the noise generator deliberately separates three mechanisms:
+\emph{temporal sparsity}, \emph{additive altitude error}, and
+\emph{digital-value corruption}. Sparsity is modeled differently during
+powered and unpowered flight. Additive error perturbs the altitude values
+that remain after sampling, and digital corruption introduces occasional
+larger or irregular errors in those values. These mechanisms are applied
+in sequence, so a degraded trajectory can contain both long gaps and
+corrupted observations. The methodology below describes the physical or
+data-handling motivation for each mechanism and the assumptions of its
+synthetic implementation.
+
+\section{Reference Trajectory and Observation Definition}
+\label{sec:noise-reference}
+
+Each test case begins with a simulated trajectory whose recorded time and
+altitude are considered the reference solution. For consistency across
+simulations, the reference trajectory is interpolated onto a uniform time
+grid with a nominal interval of $\Delta t = 0.01~\mathrm{s}$. This grid is a
+numerical basis for constructing comparable measurement sets; it is
+\emph{not} a claim that a real radar necessarily reports measurements
+at 100~Hz. Denoting the interpolated reference altitude by $h(t_i)$,
+the grid is
+\begin{equation}
+    t_i=t_0+i\Delta t,\qquad i=0,\ldots,N-1.
+    \label{eq:noise-time-grid}
+\end{equation}
+
+The reference history also provides the division between powered flight
+and the subsequent coast phase. In the standard preparation procedure,
+burnout is estimated from the simulated velocity history by identifying a
+sustained reduction in acceleration, with a pre-apogee velocity-based
+fallback when necessary. A known burnout time can alternatively be
+supplied for an individual case. This reference information is used to
+construct the phase-dependent \emph{observation schedule}; it is not
+passed to the subsequent denoising procedure as known trajectory
+information. In particular, the times at which observations are
+retained are chosen by the synthetic experiment, not inferred from
+a simulated radar-detection equation.
+
+The current degradation model acts on \emph{altitude measurements}.
+Time stamps remain exact, and the downrange history used in later
+energy calculations is not degraded by this stage. Thus the
+experiments measure sensitivity to altitude-data degradation,
+not the complete uncertainty that would arise from errors in
+all radar-derived coordinates and velocities. Reference altitude
+values are retained separately for evaluation and are not supplied
+as observations when the degraded trajectory is reconstructed.
+
+\section{Temporal Sparsity and Interrupted Coverage}
+\label{sec:noise-sparsity}
+
+Missing observations arise whenever a tracking system fails to obtain,
+associate, retain, or deliver a usable return. Low signal-to-noise
+conditions, obscuration, tracking interruptions, and data-handling
+limitations can contribute to incomplete histories. In clutter,
+associating an observed return with the correct object is itself
+an estimation problem \cite{barshalom1975clutter}. In the present
+model, these possibilities motivate removing observations, but
+their individual causes are not simulated separately.
+
+Two sampling patterns are used because the \emph{temporal arrangement}
+of the surviving observations matters in addition to their number.
+A uniformly sparse history may still constrain the shape of the
+whole trajectory. A history with the same number of observations
+concentrated into short intervals can leave much longer periods
+unconstrained. The model therefore treats powered and coast
+coverage independently rather than deleting a single fixed
+fraction of samples uniformly over the entire flight.
+
+\subsection{Powered-Flight Sampling}
+\label{sec:noise-powered}
+
+During powered flight, a selected fraction of the reference altitude
+samples is retained and distributed approximately uniformly in time.
+Small random variations in the selected sample locations prevent
+the simulated reports from falling on a perfectly regular
+subsampling pattern. This construction represents an observing
+system that maintains intermittent but relatively continuous
+coverage while retaining only a limited set of reports.
+
+Let $N_p$ be the number of points on the reference time grid during
+powered flight and let $f_p$ be the powered-flight retention
+fraction. The desired number of observations is approximately
+\begin{equation}
+    n_p \simeq \operatorname{round}(f_p N_p).
+    \label{eq:noise-powered-count}
+\end{equation}
+The standard reference configuration uses $f_p=0.05$, so
+approximately $5\%$ of powered-flight samples remain. Because
+the selected measurements are deliberately spread across the
+burn, this is \emph{not} an independent Bernoulli dropout
+process: large gaps are less likely than they would be if
+the same number of reports were selected entirely at random.
+
+The choice to distribute observations across powered flight
+is a modeling assumption made for controlled reconstruction
+experiments. It is not a universal prediction about radar
+coverage during propulsion.
+
+\subsection{Coast-Flight Sampling}
+\label{sec:noise-coast}
+
+After the reference burnout time, retained observations are
+organized into short contiguous \emph{bursts} separated by gaps.
+The coast phase in this definition includes the remainder
+of the trajectory, potentially including both ascent toward
+apogee and subsequent descent. This pattern represents
+interrupted tracking in which useful measurements arrive
+during periods of contact but may be unavailable for
+substantial intervals between contacts.
+
+Let $N_c$ be the number of reference points after burnout,
+with $f_c$ the coast retention fraction. The retained sample
+count is approximately
+\begin{equation}
+    n_c \simeq \operatorname{round}(f_c N_c).
+    \label{eq:noise-coast-count}
+\end{equation}
+Rather than distributing these $n_c$ points uniformly, the
+generator assigns them to separated observation intervals.
+The standard setup targets short bursts, with nominal
+burst-duration controls of $0.3$--$0.8~\mathrm{s}$ and
+a minimum target of five bursts when the retained sample
+count permits. The actual grouping adapts to the requested
+retention fraction and the number of available samples.
+The intervals are placed at randomized locations without
+overlap and with intervening missing-data regions.
+
+The reference coast retention fraction is $f_c=0.01$,
+corresponding to approximately $1\%$ of the potential
+post-burnout samples. Even when the total retained fraction
+is small, nearby samples within each burst contain useful
+local trajectory information. By contrast, long gaps between
+bursts require subsequent methods to infer motion over
+intervals without observations. This difference is the
+principal reason for using burst-like sampling in addition
+to simple sparse sampling.
+
+For the primary noise configuration, no observations are
+guaranteed near apogee and no minimum-total-observation
+backfill is imposed. Optional experimental safeguards can
+retain observations within a specified apogee window or add
+samples when a measurement set is too small, but those
+safeguards are disabled in the standard robustness setting.
+Consequently, severe data loss can remain severe rather
+than being silently corrected by the generator.
+
+\section{Additive Altitude Measurement Error}
+\label{sec:noise-additive}
+
+A retained measurement can be inaccurate even when it has
+been detected and associated successfully. Radar-derived
+position uncertainty may reflect receiver noise, propagation
+effects, angular and range estimation errors, and subsequent
+coordinate transformation or processing. Such effects are
+frequently represented with statistical measurement-error
+models \cite{barshalom2001estimation,eckert2020thesis}.
+Here, they motivate adding a random error directly to
+the altitude value of each \emph{retained} sample.
+
+The model uses a zero-mean Laplace distribution:
+\begin{equation}
+    \widetilde{h}_i=h(t_i)+\epsilon_i,\qquad
+    \epsilon_i\sim\operatorname{Laplace}(0,b),
+    \label{eq:noise-additive-model}
+\end{equation}
+with probability density
+\begin{equation}
+    p(\epsilon)=\frac{1}{2b}
+       \exp\left(-\frac{|\epsilon|}{b}\right),
+    \qquad b>0.
+    \label{eq:noise-laplace-pdf}
+\end{equation}
+The errors are drawn independently for the surviving
+samples. The distribution is symmetric, so positive
+and negative altitude errors are equally likely.
+The parameter $b$ controls its scale, with
+\begin{equation}
+    \mathbb{E}[\epsilon]=0,\qquad
+    \operatorname{SD}(\epsilon)=\sqrt{2}\,b.
+    \label{eq:noise-laplace-spread}
+\end{equation}
+
+A Laplace distribution is used as a \emph{stress model}
+because its heavier tails produce occasional larger
+errors in addition to typical small-to-moderate
+perturbations. This choice is useful when assessing
+whether a reconstruction method depends excessively
+on each individual observation. It should not be
+interpreted as a finding that radar-altitude errors
+are universally Laplace-distributed. Establishing
+a sensor-specific error law would require the
+characteristics or measurements of that sensor.
+
+The nominal additive scale is $b=1000~\mathrm{m}$;
+its corresponding standard deviation is approximately
+$1414~\mathrm{m}$. All trajectory altitudes and error
+amplitudes are expressed in meters. Although a
+legacy software parameter name contains a feet
+suffix, the current procedure performs no unit
+conversion and adds this error directly to
+meter-valued altitude data. This distinction is
+essential for reproducibility of the reported
+noise levels.
+
+\section{Digital Corruption and Isolated Outliers}
+\label{sec:noise-bit-errors}
+
+A second type of value error is introduced \emph{after}
+additive measurement noise. Unlike an ordinary sensor
+measurement perturbation, this mechanism represents
+possible errors introduced while numerical measurements
+are encoded, transported, or stored. Bit corruption is
+therefore a model of \emph{digital-data integrity},
+not an assertion that radar propagation itself flips
+bits in a floating-point altitude value.
+
+Each retained noisy altitude is represented in
+32-bit floating-point form. Such a value contains
+a sign, an exponent, and a 23-bit stored fraction
+(or mantissa). For a randomly selected fraction of
+the retained samples, the model reverses between one
+and three \emph{distinct fraction bits}. Sign and
+exponent bits are left unchanged. The modified bit
+pattern is then interpreted as an altitude value.
+
+The standard corruption probability is $f_b=0.10$,
+so approximately $10\%$ of \emph{surviving
+observations}, not $10\%$ of every point on the
+original reference grid, undergo this operation.
+Because the bit positions are selected randomly,
+the resulting numerical error is not of fixed
+magnitude. Changing a low-significance fraction
+bit may produce a small perturbation, while changing
+a high-significance fraction bit may produce a
+substantially larger error. The same number of
+bit changes also has different absolute effects
+on numbers with different exponents.
+
+This mechanism consequently produces irregular
+outliers that are distinct from the independently
+drawn additive errors. It is intentionally
+constrained to the fraction bits rather than the
+sign or exponent fields: the latter could produce
+more extreme or nonphysical numerical changes.
+The model tests sensitivity to corrupted stored
+values without claiming to reproduce the
+error-correction behavior of a particular
+telemetry or computing system.
+
+\section{Sequence of Degradation and Reference Conditions}
+\label{sec:noise-sequence}
+
+All three mechanisms are applied to the same
+reference altitude history in a fixed order:
+\begin{equation}
+\begin{gathered}
+\text{Reference trajectory}
+\ \longrightarrow\
+\text{phase-dependent observation selection}
+\\
+\longrightarrow\
+\text{additive altitude error}
+\ \longrightarrow\
+\text{selected floating-point bit corruption}
+\\
+\longrightarrow\
+\text{degraded altitude observations}.
+\end{gathered}
+\label{eq:noise-workflow}
+\end{equation}
+Observation selection comes first: missing samples
+are omitted, rather than assigned artificial
+numerical values. The Laplace perturbations are
+then added only to the observations that remain.
+Digital corruption acts on a randomly chosen
+subset of those noisy observations. Thus one
+retained measurement may contain both additive
+error and bit corruption, while an omitted
+measurement is never artificially restored by
+a later stage.
+
+Table~\ref{tab:noise-reference-settings}
+summarizes the nominal configuration used in
+the energy-classification noise experiments.
+Each parameter can be varied independently.
+The two retention fractions govern
+\emph{availability}; the Laplace scale governs
+ordinary measurement perturbations and their
+tails; and the bit-corruption fraction governs
+the frequency of digital outliers.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Reference configuration of the synthetic altitude degradation model.}
+    \label{tab:noise-reference-settings}
+    \begin{tabular}{lll}
+        \hline
+        Quantity & Symbol & Reference setting \\
+        \hline
+        Reference grid interval & $\Delta t$ & $0.01~\mathrm{s}$ \\
+        Powered-flight retention & $f_p$ & $0.05$ ($5\%$) \\
+        Coast-flight retention & $f_c$ & $0.01$ ($1\%$) \\
+        Laplace altitude-error scale & $b$ & $1000~\mathrm{m}$ \\
+        Fraction of retained values corrupted & $f_b$ & $0.10$ ($10\%$) \\
+        Distinct fraction bits per corrupted value & -- & 1--3 \\
+        Nominal coast-burst durations & -- & $0.3$--$0.8~\mathrm{s}$ \\
+        Protected apogee window & -- & Disabled \\
+        Minimum-observation backfill & -- & Disabled \\
+        \hline
+    \end{tabular}
+\end{table}
+
+The random sampling locations, additive errors,
+and bit selections are generated from controlled
+random-number states. Repeating an experiment with
+the same source trajectory, parameters, and random
+seed reproduces the same degraded observations.
+Different random seeds generate independent
+realizations of the specified degradation condition.
+This permits performance to be examined across
+multiple possible gap and error arrangements,
+rather than relying on a single fortunate
+or unfavorable realization.
+
+\section{Degradation Severity and Experimental Comparisons}
+\label{sec:noise-severity}
+
+The noise model is intended to support both
+\emph{isolated-mechanism} and \emph{combined}
+stress studies. Isolated studies change the
+powered/coast retention settings, the additive
+error scale, or the digital corruption rate
+while keeping the other mechanisms at their
+clean settings. In this way, changes in
+downstream performance can be associated
+more directly with a particular source
+of degradation. The powered and coast
+retention fractions are varied together
+in the illustrated sparsity sweep, but
+remain separate parameters of the model.
+
+Combined conditions vary the three mechanisms
+at once to examine their interaction. The
+noise-study configuration employs the
+conditions in Table~\ref{tab:noise-combined-levels}.
+The labels describe progressively stronger
+\emph{synthetic} stress conditions rather
+than standardized categories of real radar
+performance.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Combined synthetic-degradation conditions used in the noise study.}
+    \label{tab:noise-combined-levels}
+    \begin{tabular}{lrrrr}
+        \hline
+        Condition & $f_p$ & $f_c$ & $b$ (m) & $f_b$ \\
+        \hline
+        Clean      & 1.00 & 1.000 & 0    & 0.00 \\
+        Light      & 0.50 & 0.250 & 250  & 0.01 \\
+        Moderate   & 0.25 & 0.100 & 500  & 0.03 \\
+        High       & 0.10 & 0.030 & 1000 & 0.05 \\
+        Very high  & 0.05 & 0.010 & 1000 & 0.10 \\
+        Extreme    & 0.02 & 0.005 & 2000 & 0.20 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+The isolated additive-error study uses scales of
+$0$, $100$, $250$, $500$, $1000$, and
+$2000~\mathrm{m}$; the isolated digital-error
+study considers corruption fractions of
+$0$, $0.01$, $0.03$, $0.05$, $0.10$, and
+$0.20$. The isolated sparsity conditions
+range from full retention to $2\%$ powered
+and $0.5\%$ coast retention. Multiple
+random realizations at each condition
+allow variation caused by the random
+placement of gaps or corrupted values
+to be distinguished from the effect of
+the chosen severity level.
+
+The clean condition is an essential
+control: it retains all reference points
+and applies neither additive noise
+nor bit corruption. Comparisons with
+this condition distinguish the effect
+of data degradation from differences
+already present between the underlying
+simulated trajectories.
+
+\section{Model Assumptions and Implications}
+\label{sec:noise-limitations}
+
+The synthetic construction makes several
+deliberate simplifications. First, it
+does not compute detection probability
+from range, radar cross section,
+antenna geometry, or signal-to-noise
+ratio. The distinct powered and coast
+coverage patterns are prescribed test
+conditions, not consequences of an
+explicit sensor model. Second, the
+additive altitude errors are independent
+and have zero mean: systematic
+calibration offsets, temporally
+correlated drift, and propagation biases
+are not separately modeled. Third,
+the bit-flip mechanism is a selected
+digital-value corruption test and
+does not incorporate error detection
+or correction during transmission.
+Finally, only altitude is corrupted,
+so the study does not represent
+the full propagation of coupled
+position-coordinate errors into
+all reconstructed motion quantities.
+
+These choices limit claims about
+operational realism, but also make
+the degradation mechanisms
+interpretable and repeatable.
+They establish a controlled set of
+observations for asking how much
+trajectory information can be
+recovered when the data are
+temporally incomplete, imprecise,
+and occasionally corrupted.
+The reconstruction of continuous
+histories from those observations,
+and the handling of outliers during
+that reconstruction, are considered
+in the following chapter.
